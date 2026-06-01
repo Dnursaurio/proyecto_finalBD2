@@ -1,79 +1,127 @@
 #include <iostream>
+#include <string>
 #include "DISK.h"
+#include "DatabaseManager.h"
 
 using namespace std;
 
 int main() {
-    cout<<"SISTEMA GESTOR DE BASE DE DATOS"<<endl;
-    bool existe_disco = 0;
+    cout << "SISTEMA GESTOR DE BASE DE DATOS" << endl;
+    bool existe_disco = false;
+    DISK* disco = nullptr;
+    DatabaseManager* dbManager = nullptr;
+    
     while (true) {
-        cout<<"MENU DE OPCIONES \n 1. personalizar el disco \n 2. Insertar datos \n "
-              "3. Buscar datos \n 4. Salir"<<endl;
-        cout<<"INGRESE UNA OPCION: ";
+        cout << "\nMENU DE OPCIONES" << endl;
+        cout << "1. Personalizar el disco" << endl;
+        cout << "2. Insertar datos (cargar CSV)" << endl;
+        cout << "3. Buscar datos (por ID)" << endl;
+        cout << "4. Mostrar todos los registros" << endl;
+        cout << "5. Salir" << endl;
+        cout << "INGRESE UNA OPCION: ";
+        
         int opciones = 0;
-        cin>>opciones;
+        cin >> opciones;
+        
         if (opciones < 1 || opciones > 5) {
-            cout<<"opcion no valida, intente de nuevo :)"<<endl;
+            cout << "Opcion no valida, intente de nuevo :)" << endl;
+            continue;
         }
-        DISK* disco = nullptr;
+        
         switch (opciones) {
-            case 1:{
+            case 1: {
                 if (!existe_disco) {
-                    cout<<" PERSONALIZAR DISCO"<<endl;
-                    cout<<"ADVERTENCIA: Este sistema funciona en base 2, solo ingrese \n"
-                          "el exponente , el sistema automaticamente calculara las cantidades \n"
-                          "para su disco"<<endl;
+                    cout << "\n=== PERSONALIZAR DISCO ===" << endl;
+                    cout << "ADVERTENCIA: Este sistema funciona en base 2, solo ingrese el exponente" << endl;
+                    cout << "El sistema automaticamente calculara las cantidades para su disco" << endl;
+                    
                     int platos = 0, pistas = 0, sectores = 0, capacidad = 0;
-                    cout<<"Ingrese el nro de platos (Exponente)"<<endl;
-                    cin>>platos;
-                    cout<<"Ingrese el nro de pistas (Exponente)"<<endl;
-                    cin>>pistas;
-                    cout<<"Ingrese el nro de sectores (Exponente)"<<endl;
-                    cin>>sectores;
-                    cout<<"Ingrese la capacidad de cada sector (Exponente)"<<endl;
-                    cin>>capacidad;
-                    disco = new DISK(platos,pistas,sectores,capacidad);
+                    
+                    cout << "Ingrese el nro de platos (Exponente): ";
+                    cin >> platos;
+                    cout << "Ingrese el nro de pistas (Exponente): ";
+                    cin >> pistas;
+                    cout << "Ingrese el nro de sectores (Exponente): ";
+                    cin >> sectores;
+                    cout << "Ingrese la capacidad de cada sector (Exponente en Bytes): ";
+                    cin >> capacidad;
+                    
+                    disco = new DISK(platos, pistas, sectores, capacidad);
                     disco->Formateador();
+                    existe_disco = true;
+                    
+                    // Inicializar el DatabaseManager
+                    dbManager = new DatabaseManager(disco);
+                } else {
+                    cout << "Ya existe un disco creado." << endl;
                 }
-                existe_disco = 1;
-                bool opciones_disk = 0;
-                cout<<"Activar opciones del disco (escribir 1 caso contrario 0): ";
-                cin>>opciones_disk;
-                cout<<"OPCIONES DEL DISCO"<<endl;
-                cout<<"1. Eliminar disco\n"
-                      "2. Volver el menu principal"<<endl;
-                while (opciones_disk) {
-                    int opciones_disco = 0;
-                    cin>>opciones_disco;
-                    switch (opciones_disco) {
-                        case 1:
-                            cout<<"ELIMINAR DISCO"<<endl;
-                            delete disco;
-                            existe_disco = 0;
-                            opciones_disk = 0;
-                            break;
-                        case 2:
-                            cout<<"MENU PRINCIPAL"<<endl;
-                            opciones_disk = 0;
-                            break;
-                    }
-                }
-                break;}
-            case 2:
-                cout<<"INSERTAR DATOS (usar un csv)"<<endl;
-                if (!existe_disco) {
-                    cout<<"ERROR, cree un disco primero"<<endl;
-                    break;
+                
+                // Menú de opciones del disco
+                int opciones_disk = 0;
+                cout << "\nOPCIONES DEL DISCO" << endl;
+                cout << "1. Eliminar disco" << endl;
+                cout << "2. Volver al menu principal" << endl;
+                cout << "Ingrese opcion: ";
+                cin >> opciones_disk;
+                
+                if (opciones_disk == 1) {
+                    cout << "ELIMINAR DISCO" << endl;
+                    delete disco;
+                    delete dbManager;
+                    disco = nullptr;
+                    dbManager = nullptr;
+                    existe_disco = false;
                 }
                 break;
-            case 3:
-                cout<<"BUSQUEDA DE DATOS"<<endl;
+            }
+            
+            case 2: {
+                cout << "\n=== INSERTAR DATOS (CSV) ===" << endl;
                 if (!existe_disco) {
-                    cout<<"ERROR, cree un disco primero"<<endl;
+                    cout << "ERROR: Cree un disco primero." << endl;
                     break;
                 }
+                
+                string ruta_csv;
+                cout << "Ingrese la ruta del archivo CSV: ";
+                cin >> ruta_csv;
+                
+                if (dbManager->cargarCSV(ruta_csv)) {
+                    cout << "Datos cargados exitosamente." << endl;
+                }
                 break;
-            case 4:
+            }
+            
+            case 3: {
+                cout << "\n=== BUSQUEDA DE DATOS ===" << endl;
+                if (!existe_disco) {
+                    cout << "ERROR: Cree un disco primero." << endl;
+                    break;
+                }
+                
+                int id_buscar;
+                cout << "Ingrese el ID a buscar: ";
+                cin >> id_buscar;
+                
+                dbManager->buscarPorID(id_buscar);
+                break;
+            }
+            
+            case 4: {
+                cout << "\n=== MOSTRAR TODOS LOS REGISTROS ===" << endl;
+                if (!existe_disco) {
+                    cout << "ERROR: Cree un disco primero." << endl;
+                    break;
+                }
+                
+                dbManager->mostrarTodos();
+                break;
+            }
+            
+            case 5:
+                cout << "Saliendo del sistema..." << endl;
+                delete disco;
+                delete dbManager;
                 return 0;
         }
     }
