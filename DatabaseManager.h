@@ -9,39 +9,22 @@
 
 using namespace std;
 
-struct Registro {
-    int id;
-    char nombre[50];
-    char email[100];
-    float salario;
-    
-    string serializar() {
-        stringstream ss;
-        ss << id << "|" << nombre << "|" << email << "|" << salario;
-        return ss.str();
-    }
-    
-    void deserializar(const string& data) {
-        stringstream ss(data);
-        string temp;
-        getline(ss, temp, '|');
-        id = stoi(temp);
-        getline(ss, nombre, '|');
-        getline(ss, email, '|');
-        getline(ss, temp, '|');
-        salario = stof(temp);
-    }
-};
-
 class DatabaseManager {
 private:
     DISK* disco;
-    int registros_por_sector;
+    long long registros_por_sector;
+    vector<string> encabezados;
+    long long sector_actual;
+    string buffer_sector;
+    int registros_en_buffer;
     
 public:
     DatabaseManager(DISK* d) : disco(d) {
-        registros_por_sector = disco->getCapacidadSector() / 200; // 200 bytes aprox por registro
+        registros_por_sector = disco->getCapacidadSector() / 256;
         if (registros_por_sector < 1) registros_por_sector = 1;
+        sector_actual = 0;
+        registros_en_buffer = 0;
+        buffer_sector = "";
     }
 
     bool cargarCSV(const string& ruta_csv) {
@@ -52,143 +35,170 @@ public:
         }
         
         string linea;
-        int registro_actual = 0;
-        int sector_actual = 0;
-        string buffer_sector = "";
-
-        getline(archivo_csv, linea);
-        
-        cout << "Cargando datos desde CSV..." << endl;
-        
-        while (getline(archivo_csv, linea)) {
-            Registro reg;
+        int linea_num = 0;
+   
+        if (getline(archivo_csv, linea)) {
             stringstream ss(linea);
-            string temp;
-
-            getline(ss, temp, ',');
-            reg.id = stoi(temp);
-            getline(ss, reg.nombre, ',');
-            getline(ss, reg.email, ',');
-            getline(ss, temp, ',');
-            reg.salario = stof(temp);
-            
-            string registro_str = reg.serializar();
-            
-            registro_str.resize(200, ' ');
-            
-            buffer_sector += registro_str;
-            registro_actual++;
-  
-            if (registro_actual >= registros_por_sector) {
-                escribirSector(sector_actual, buffer_sector);
-                sector_actual++;
-                registro_actual = 0;
-                buffer_sector = "";
+            string columna;
+            encabezados.clear();
+            while (getline(ss, columna, ',')) {
+                encabezados.push_back(columna);
             }
+            cout << "Encabezados detectados: ";
+            for (const auto& h : encabezados) {
+                cout << h << " ";
+            }
+            cout << endl;
+            linea_num++;
+        }
+        
+        cout << "\nCargando datos desde CSV..." << endl;
+
+        while (getline(archivo_csv, linea)) {
+            string registro = linea + "\n";
+            buffer_sector += registro;
+            registros_en_buffer++;
+            
+            if (registros_en_buffer >= registros_por_sector || 
+                buffer_sector.length() >= disco->getCapacidadSector() - 256) {
+                escribirSectorActual();
+            }
+            linea_num++;
         }
         
         if (buffer_sector.length() > 0) {
-            buffer_sector.resize(disco->getCapacidadSector(), ' ');
-            escribirSector(sector_actual, buffer_sector);
+            escribirSectorActual();
         }
         
         archivo_csv.close();
-        cout << "CSV cargado exitosamente. Se usaron " << sector_actual + 1 << " sectores." << endl;
+        cout << "✅ CSV cargado exitosamente. " << (linea_num - 1) << " registros cargados en " 
+             << sector_actual << " sectores." << endl;
         return true;
     }
-  
-    bool buscarPorID(int id_buscar) {
+
+    bool buscarTexto(const string& texto_buscar) {
         long long capacidad = disco->getCapacidadSector();
         long long total_sectores = disco->getTotalSectores();
-        char buffer[capacidad];
+        char* buffer = new char[capacidad + 1];
+        bool encontrado = false;
+        
+        cout << "\n=== BUSCANDO: \"" << texto_buscar << "\" ===" << endl;
         
         for (long long s = 0; s < total_sectores; s++) {
-         
             long long superficie = 0;
-            long long pista = (s * capacidad) / (disco->getCapacidadSector() * disco->getTotalSectores());
+            long long pista = (s * capacidad) / (disco->getCapacidadSector() * total_sectores);
             long long sector_num = s % disco->getCapacidadSector();
             
             disco->Leer_Sector(superficie, pista, sector_num, buffer);
+            buffer[capacidad] = '\0';
             
-            string contenido(buffer, capacidad);
+            string contenido(buffer);
             
-            for (int i = 0; i < registros_por_sector; i++) {
-                int inicio = i * 200;
-                if (inicio + 200 > capacidad) break;
+            size_t pos = 0;
+            int linea_num = 1;
+            while ((pos = contenido.find(texto_buscar, pos)) != string::npos) {
+                size_t inicio_linea = contenido.rfind('\n', pos);
+                if (inicio_linea == string::npos) inicio_linea = 0;
+                else inicio_linea++;
                 
-                string registro_str = contenido.substr(inicio, 200);
-             
-                registro_str.erase(registro_str.find_last_not_of(' ') + 1);
+                size_t fin_linea = contenido.find('\n', pos);
+                string linea = contenido.substr(inicio_linea, fin_linea - inicio_linea);
                 
-                if (registro_str.empty()) continue;
-                
-                Registro reg;
-                reg.deserializar(registro_str);
-                
-                if (reg.id == id_buscar) {
-                    cout << "\n=== REGISTRO ENCONTRADO ===" << endl;
-                    cout << "ID: " << reg.id << endl;
-                    cout << "Nombre: " << reg.nombre << endl;
-                    cout << "Email: " << reg.email << endl;
-                    cout << "Salario: " << reg.salario << endl;
-                    cout << "Ubicado en sector: " << s << endl;
-                    return true;
-                }
+                cout << "📌 Sector " << s << ", Línea " << linea_num << ": " << linea << endl;
+                encontrado = true;
+                pos = fin_linea;
+                linea_num++;
             }
         }
         
-        cout << "No se encontró el registro con ID: " << id_buscar << endl;
-        return false;
+        if (!encontrado) {
+            cout << "❌ No se encontró el texto: \"" << texto_buscar << "\"" << endl;
+        }
+        
+        delete[] buffer;
+        return encontrado;
     }
 
     void mostrarTodos() {
         long long capacidad = disco->getCapacidadSector();
         long long total_sectores = disco->getTotalSectores();
-        char buffer[capacidad];
-        bool encontrado = false;
+        char* buffer = new char[capacidad + 1];
+        bool hay_datos = false;
         
         cout << "\n=== TODOS LOS REGISTROS ===" << endl;
         
+        if (!encabezados.empty()) {
+            for (const auto& h : encabezados) {
+                cout << h << "\t";
+            }
+            cout << "\n" << string(50, '-') << endl;
+        }
+        
         for (long long s = 0; s < total_sectores; s++) {
             long long superficie = 0;
-            long long pista = 0;
+            long long pista = (s * capacidad) / (disco->getCapacidadSector() * total_sectores);
             long long sector_num = s % disco->getCapacidadSector();
             
             disco->Leer_Sector(superficie, pista, sector_num, buffer);
+            buffer[capacidad] = '\0';
             
-            string contenido(buffer, capacidad);
-            
-            for (int i = 0; i < registros_por_sector; i++) {
-                int inicio = i * 200;
-                if (inicio + 200 > capacidad) break;
-                
-                string registro_str = contenido.substr(inicio, 200);
-                registro_str.erase(registro_str.find_last_not_of(' ') + 1);
-                
-                if (registro_str.empty()) continue;
-                
-                Registro reg;
-                reg.deserializar(registro_str);
-                
-                cout << "ID: " << reg.id << " | Nombre: " << reg.nombre 
-                     << " | Email: " << reg.email << " | Salario: " << reg.salario << endl;
-                encontrado = true;
+            string contenido(buffer);
+            stringstream ss(contenido);
+            string linea;
+            while (getline(ss, linea, '\n')) {
+                if (!linea.empty()) {
+                    for (char& c : linea) {
+                        if (c == ',') c = '\t';
+                    }
+                    cout << linea << endl;
+                    hay_datos = true;
+                }
             }
         }
         
-        if (!encontrado) {
-            cout << "No hay registros en el disco." << endl;
+        if (!hay_datos) {
+            cout << "📭 No hay registros en el disco." << endl;
         }
+        
+        delete[] buffer;
+    }
+
+    bool buscarPorID(const string& id_buscar) {
+        return buscarTexto(id_buscar);
+    }
+
+    void mostrarEstadisticas() {
+        cout << "\n=== ESTADÍSTICAS DEL DISCO ===" << endl;
+        cout << "Capacidad por sector: " << disco->getCapacidadSector() << " Bytes" << endl;
+        cout << "Total de sectores: " << disco->getTotalSectores() << endl;
+        cout << "Registros por sector (aprox): " << registros_por_sector << endl;
+        cout << "Sectores utilizados: " << sector_actual << endl;
+        
+        long long capacidad_total = disco->getTotalSectores() * disco->getCapacidadSector();
+        long long capacidad_usada = sector_actual * disco->getCapacidadSector();
+        double porcentaje = (double)capacidad_usada / capacidad_total * 100;
+        
+        cout << "Espacio usado: " << capacidad_usada / 1024 << " KB / " 
+             << capacidad_total / 1024 << " KB (" << porcentaje << "%)" << endl;
     }
     
 private:
-    void escribirSector(int sector_num, const string& datos) {
-       
-        long long superficie = 0;
-        long long pista = sector_num / disco->getCapacidadSector();
-        long long sector = sector_num % disco->getCapacidadSector();
+    void escribirSectorActual() {
+        if (buffer_sector.empty()) return;
         
-        disco->Escribir_sector(superficie, pista, sector, datos.c_str());
+        if (buffer_sector.length() < disco->getCapacidadSector()) {
+            buffer_sector.resize(disco->getCapacidadSector(), '\0');
+        }
+        
+        long long superficie = 0;
+        long long pista = sector_actual / disco->getNroSectores();
+        long long sector_num = sector_actual % disco->getNroSectores();
+        
+        disco->Escribir_sector(superficie, pista, sector_num, buffer_sector.c_str());
+        
+        sector_actual++;
+        buffer_sector = "";
+        registros_en_buffer = 0;
     }
 };
 
