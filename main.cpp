@@ -43,16 +43,16 @@ int main() {
                     disco->Formateador();
                     dbManager = new DatabaseManager(disco);
                     existe_disco = true;
-                    cout << "✅ Disco creado exitosamente." << endl;
+                    cout << "Disco creado exitosamente." << endl;
                 } else {
-                    cout << "⚠️ Ya existe un disco. Elimínelo primero." << endl;
+                    cout << "Ya existe un disco. Elimínelo primero." << endl;
                 }
                 break;
             }
             
             case 2: {
                 if (!existe_disco) {
-                    cout << "❌ Error: Cree un disco primero." << endl;
+                    cout << "Error: Cree un disco primero." << endl;
                     break;
                 }
                 string ruta;
@@ -64,7 +64,7 @@ int main() {
             
             case 3: {
                 if (!existe_disco) {
-                    cout << "❌ Error: Cree un disco primero." << endl;
+                    cout << "Error: Cree un disco primero." << endl;
                     break;
                 }
                 dbManager->mostrarTodos();
@@ -73,7 +73,7 @@ int main() {
             
             case 4: {
                 if (!existe_disco) {
-                    cout << "❌ Error: Cree un disco primero." << endl;
+                    cout << "Error: Cree un disco primero." << endl;
                     break;
                 }
                 string texto;
@@ -85,7 +85,7 @@ int main() {
             
             case 5: {
                 if (!existe_disco) {
-                    cout << "❌ Error: Cree un disco primero." << endl;
+                    cout << "Error: Cree un disco primero." << endl;
                     break;
                 }
                 dbManager->mostrarEstadisticas();
@@ -99,15 +99,15 @@ int main() {
                     disco = nullptr;
                     dbManager = nullptr;
                     existe_disco = false;
-                    cout << "✅ Disco eliminado." << endl;
+                    cout << "Disco eliminado." << endl;
                 } else {
-                    cout << "⚠️ No hay disco para eliminar." << endl;
+                    cout << "No hay disco para eliminar." << endl;
                 }
                 break;
             }
             
             case 7:
-                cout << "👋 Saliendo del sistema..." << endl;
+                cout << "Saliendo del sistema..." << endl;
                 delete disco;
                 delete dbManager;
                 return 0;
