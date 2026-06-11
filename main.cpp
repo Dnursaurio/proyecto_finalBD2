@@ -113,7 +113,7 @@ int main() {
                 return 0;
                 
             default:
-                cout << "❌ Opción no válida." << endl;
+                cout << "Opción no válida." << endl;
         }
     }
 }
