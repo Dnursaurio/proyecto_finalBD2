@@ -71,7 +71,7 @@ public:
         }
         
         archivo_csv.close();
-        cout << "✅ CSV cargado exitosamente. " << (linea_num - 1) << " registros cargados en " 
+        cout << "CSV cargado exitosamente. " << (linea_num - 1) << " registros cargados en " 
              << sector_actual << " sectores." << endl;
         return true;
     }
@@ -104,7 +104,7 @@ public:
                 size_t fin_linea = contenido.find('\n', pos);
                 string linea = contenido.substr(inicio_linea, fin_linea - inicio_linea);
                 
-                cout << "📌 Sector " << s << ", Línea " << linea_num << ": " << linea << endl;
+                cout << "Sector " << s << ", Línea " << linea_num << ": " << linea << endl;
                 encontrado = true;
                 pos = fin_linea;
                 linea_num++;
@@ -112,7 +112,7 @@ public:
         }
         
         if (!encontrado) {
-            cout << "❌ No se encontró el texto: \"" << texto_buscar << "\"" << endl;
+            cout << "No se encontró el texto: \"" << texto_buscar << "\"" << endl;
         }
         
         delete[] buffer;
@@ -157,7 +157,7 @@ public:
         }
         
         if (!hay_datos) {
-            cout << "📭 No hay registros en el disco." << endl;
+            cout << "No hay registros en el disco." << endl;
         }
         
         delete[] buffer;
